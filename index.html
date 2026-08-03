@@ -528,8 +528,13 @@
 
     searchInput.addEventListener('paste', async (e) => {
       const text = (e.clipboardData || window.clipboardData).getData('text');
+      console.log('Pasted text:', text);
       const coords = await extractLatLng(text);
-      if (!coords) return; // Not a maps link/coordinate pair — let the normal paste + search happen
+      console.log('Extracted coords:', coords);
+      if (!coords) {
+        console.log('No coords found, letting normal paste happen');
+        return;
+      }
 
       e.preventDefault();
       searchResults.style.display = 'none';
@@ -540,6 +545,7 @@
       selectedLocation.lng = coords.lng;
       selectedLocation.address = address;
       searchInput.value = address;
+      console.log('Location set:', selectedLocation);
     });
 
     // Search for places
