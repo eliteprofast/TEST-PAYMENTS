@@ -276,14 +276,19 @@ async function notifyOrderToDiscord(order) {
     ...(mapsLink && { url: mapsLink })
   };
 
-  await fetch(discordWebhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ embeds: [embed] })
-  }).then(res => {
-    if (!res.ok) throw new Error(`Discord HTTP ${res.status}`);
+  try {
+    const response = await fetch(discordWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [embed] })
+    });
+    if (!response.ok) {
+      throw new Error(`Discord HTTP ${response.status}: ${response.statusText}`);
+    }
     console.log(`✅ Order ${order.id} sent to Discord`);
-  });
+  } catch (error) {
+    throw new Error(`Failed to notify Discord: ${error.message}`);
+  }
 }
 
 // The PayPal SDK reports API failures as an Error whose `message` is the raw
@@ -433,6 +438,42 @@ app.get("/success", (_req, res) => {
 
 app.get("/failed", (_req, res) => {
   res.sendFile(path.join(__dirname, "failed.html"));
+});
+
+app.post("/test-webhook", async (_req, res) => {
+  if (!discordWebhookUrl) {
+    return res.status(503).json({
+      ok: false,
+      error: "DISCORD_WEBHOOK_URL is not configured"
+    });
+  }
+
+  const testOrder = {
+    id: `test-${Date.now()}`,
+    paypalOrderId: "TEST_ORDER_ID",
+    amount: "10.00",
+    currency: "USD",
+    amountAed: "36.73",
+    item: "Test Item",
+    phoneNumber: "+971500000000",
+    deliveryLocation: "Dubai, UAE",
+    coordinates: "25.2048, 55.2708",
+    payerName: "Test Payer",
+    payerEmail: "test@example.com",
+    timestamp: new Date().toISOString(),
+    status: "test"
+  };
+
+  try {
+    await notifyOrderToDiscord(testOrder);
+    res.json({ ok: true, message: "Test webhook sent successfully" });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+      details: "Discord webhook failed. Check the URL and ensure it's valid."
+    });
+  }
 });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
