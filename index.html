@@ -481,7 +481,7 @@
     // Pull coordinates out of a pasted Google Maps link or a plain "lat, lng" string.
     // Shared "place" links embed the exact pin as "!3d<lat>!4d<lng>", which is more
     // precise than the "@lat,lng,zoom" segment (that one is just the map's center).
-    function extractLatLng(text) {
+    async function extractLatLng(text) {
       let m = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
       if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
 
@@ -490,6 +490,18 @@
 
       m = text.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
       if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+
+      // Try to expand shortened Google Maps links (maps.app.goo.gl)
+      if (text.includes('maps.app.goo.gl') || text.includes('goo.gl')) {
+        try {
+          const response = await fetch(text.trim(), { method: 'HEAD', redirect: 'follow' });
+          const expanded = response.url || text;
+          m = expanded.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+          if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+        } catch (e) {
+          console.error('Failed to expand shortened link:', e);
+        }
+      }
 
       return null;
     }
@@ -512,7 +524,7 @@
 
     searchInput.addEventListener('paste', async (e) => {
       const text = (e.clipboardData || window.clipboardData).getData('text');
-      const coords = extractLatLng(text);
+      const coords = await extractLatLng(text);
       if (!coords) return; // Not a maps link/coordinate pair — let the normal paste + search happen
 
       e.preventDefault();
