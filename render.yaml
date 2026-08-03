@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: paypal-aed-checkout
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: CURRENCY
+        value: USD
+      # Secrets: set these values in the Render dashboard (Environment tab),
+      # not here — render.yaml is committed to git.
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false

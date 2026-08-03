@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayPal AED Checkout</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-geosearch/3.11.0/geosearch.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-geosearch/3.11.0/geosearch.umd.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ElitezShop theme: black space backdrop + blue star glow, yellow headings,
+       light-blue body copy. Keep every colour on these variables so the whole
+       checkout stays in sync with the shop front. */
+    :root {
+      --bg: #05060d;
+      --card-bg: #0f1a33;
+      --card-border: rgba(126, 166, 255, 0.18);
+      --heading: #f5e663;
+      --text: #9cc0f5;
+      --text-dim: #7f93b8;
+      --input-bg: #0a1226;
+      --input-border: rgba(126, 166, 255, 0.22);
+      --accent: #4c8dff;
+      --accent-strong: #3b6fe0;
+      --danger: #ff7b72;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background:
+        radial-gradient(ellipse 90% 55% at 50% 105%, rgba(46, 78, 178, 0.55), transparent 70%),
+        radial-gradient(ellipse 70% 45% at 15% 0%, rgba(58, 43, 130, 0.35), transparent 70%),
+        var(--bg);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 26px;
+      color: var(--heading);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 40px 32px;
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 60px rgba(46, 78, 178, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    label {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: var(--heading);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 15px;
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      background: var(--input-bg);
+      color: var(--text);
+      transition: all 0.2s ease;
+      font-family: inherit;
+      font-weight: 500;
+    }
+
+    select option {
+      background: var(--input-bg);
+      color: var(--text);
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76, 141, 255, 0.22);
+    }
+
+    input::placeholder {
+      color: var(--text-dim);
+    }
+
+    #amount {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    #search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      display: none;
+      background: var(--input-bg);
+      margin-top: 8px;
+    }
+
+    .search-result {
+      padding: 12px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(126, 166, 255, 0.12);
+      transition: background 0.15s ease;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .search-result:last-child {
+      border-bottom: none;
+    }
+
+    .search-result:hover {
+      background: rgba(76, 141, 255, 0.16);
+      color: var(--heading);
+    }
+
+    #select-location-btn {
+      padding: 13px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      background: linear-gradient(135deg, #5b96ff, var(--accent-strong));
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 10px;
+      font-family: inherit;
+    }
+
+    #select-location-btn:hover {
+      background: linear-gradient(135deg, #6ea3ff, #4a7df0);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(76, 141, 255, 0.35);
+    }
+
+    .location-hint {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      margin: 12px 0 0;
+    }
+
+    .location-hint-strong {
+      font-weight: 700;
+      color: var(--heading);
+    }
+
+    .location-notice {
+      font-size: 13px;
+      color: var(--danger);
+      font-weight: 700;
+      text-align: center;
+      margin: 12px 0 0;
+    }
+
+    #paypal-account-button-container {
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    #cart-summary-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .cart-summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .cart-summary-row.total {
+      border-top: 1px solid var(--input-border);
+      margin-top: 4px;
+      padding-top: 10px;
+      font-weight: 700;
+      color: var(--heading);
+    }
+
+    .cart-summary-row.usd-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    #item-required-notice {
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    p {
+      font-size: 13px;
+      color: var(--danger);
+      font-weight: 700;
+      text-align: center;
+      margin: 0 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Pay with PayPal</h2>
+    <p style="font-size: 14px; color: var(--danger); font-weight: bold; text-align: center; margin: 0 0 16px; max-width: 240px;">NOTICE: Please submit the <strong style="font-weight: 900;">EXACT</strong> price of your order</p>
+    <p id="cart-load-error" style="display: none;"></p>
+    <div class="form-group" id="cart-summary-group" style="display: none;">
+      <label>Order Summary</label>
+      <div id="cart-summary-list"></div>
+    </div>
+    <div class="form-group" id="manual-item-group">
+      <label for="item">Items</label>
+      <select id="item">
+        <option value="">-- Select an item --</option>
+        <option value="Office Chair" data-price="70.00">Office Chair — 70.00 AED</option>
+        <option value="Wimpy Kid Book" data-price="15.00">Wimpy Kid Book — 15.00 AED</option>
+        <option value="HP Gaming Keyboard" data-price="35.00">HP Gaming Keyboard — 35.00 AED</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="amount">Amount</label>
+      <input id="amount" type="number" min="1" step="0.01" value="10.00" />
+    </div>
+    <div class="form-group">
+      <label for="phone-number">Phone Number</label>
+      <input id="phone-number" type="tel" placeholder="+971 XX XXX XXXX" />
+    </div>
+    <div class="form-group">
+      <label for="search-input">Delivery Location</label>
+      <input id="search-input" type="text" placeholder="Search any house, street, or place..." />
+      <div id="search-results"></div>
+      <button id="select-location-btn" type="button">Select Your Location</button>
+      <p class="location-hint">Opens Google Maps in a new tab. <strong class="location-hint-strong">Pick your spot, then copy its link or coordinates and paste them here.</strong></p>
+      <p class="location-notice">⚠ Notice: If you don't paste the coordinates or link of your spot your order might not be delivered!</p>
+      <div id="paypal-account-button-container" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--card-border); opacity: 0.5; pointer-events: none;"></div>
+      <p id="checkout-error" style="display: none; font-size: 14px; margin: 12px 0 0;"></p>
+      <p id="item-required-notice" style="font-size: 14px; color: var(--danger); font-weight: bold; text-align: center; margin: 12px 0 0;">Please select an item to continue</p>
+    </div>
+  </div>
+
+  <script>
+    const container = document.getElementById("paypal-account-button-container");
+    const itemRequiredNotice = document.getElementById("item-required-notice");
+    const amountInput = document.getElementById("amount");
+    const itemSelect = document.getElementById("item");
+    const searchInput = document.getElementById("search-input");
+    const searchResults = document.getElementById("search-results");
+    const selectLocationBtn = document.getElementById("select-location-btn");
+    const phoneNumberInput = document.getElementById("phone-number");
+    const cartSummaryGroup = document.getElementById("cart-summary-group");
+    const cartSummaryList = document.getElementById("cart-summary-list");
+    const manualItemGroup = document.getElementById("manual-item-group");
+    let selectedLocation = { address: "" };
+    // Populated by initCartMode() when this page was opened from ElitezShop's
+    // cart with a ?cart= payload. When set, createOrder sends { items } and
+    // the server prices the order from PRODUCTS instead of the amount field.
+    let cartModeItems = null;
+    // Currency the PayPal SDK script should load with — "USD" once cart mode
+    // resolves (see initCartMode), otherwise falls back to /config's currency
+    // for manual test mode.
+    let cartModeSdkCurrency = null;
+    // Preserved through the whole payment flow (this page -> success/failed)
+    // via sessionStorage so the confirmation page can link back to the shop.
+    let shopReturnUrl = null;
+
+    // Set once we've shown the shopper a specific reason on this page, so the
+    // SDK's follow-up onError doesn't replace it with the generic /failed page.
+    let checkoutErrorShown = false;
+
+    function showCheckoutError(message) {
+      checkoutErrorShown = true;
+      const el = document.getElementById("checkout-error");
+      el.textContent = message;
+      el.style.display = "block";
+    }
+
+    function clearCheckoutError() {
+      checkoutErrorShown = false;
+      const el = document.getElementById("checkout-error");
+      el.textContent = "";
+      el.style.display = "none";
+    }
+
+    function showCartLoadError(message) {
+      const el = document.getElementById("cart-load-error");
+      el.textContent = message;
+      el.style.display = "block";
+    }
+
+    function isSafeReturnUrl(value) {
+      try {
+        const url = new URL(value, window.location.href);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    // Reads ?cart=<json>&return=<url> from the URL (set by ElitezShop's
+    // checkout button) and switches the page into read-only order-summary
+    // mode. Falls back silently to the manual test form on any bad input.
+    async function initCartMode() {
+      const params = new URLSearchParams(window.location.search);
+      const returnParam = params.get("return");
+      if (returnParam && isSafeReturnUrl(returnParam)) {
+        shopReturnUrl = returnParam;
+        sessionStorage.setItem("elitez_return_url", shopReturnUrl);
+      }
+
+      const cartParam = params.get("cart");
+      if (!cartParam) return;
+
+      let requested;
+      try {
+        requested = JSON.parse(decodeURIComponent(cartParam));
+      } catch {
+        return;
+      }
+      if (!Array.isArray(requested) || requested.length === 0) return;
+
+      const catalog = await fetch("/products").then(r => r.json()).catch(() => null);
+      if (!catalog) {
+        showCartLoadError("We couldn't load your cart from ElitezShop. Please go back and try again, or use the manual form below.");
+        return;
+      }
+      const products = catalog.products || {};
+
+      const resolved = requested
+        .filter(entry => entry && products[entry.id])
+        .map(entry => ({
+          id: entry.id,
+          quantity: Math.max(1, Math.min(20, Math.trunc(Number(entry.quantity)) || 1)),
+          name: products[entry.id].name,
+          price: products[entry.id].price
+        }));
+      if (resolved.length === 0) {
+        showCartLoadError("None of the items in your cart could be recognized. Please go back and try again, or use the manual form below.");
+        return;
+      }
+
+      cartModeItems = resolved.map(({ id, quantity }) => ({ id, quantity }));
+
+      const totalAed = resolved.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      // PayPal doesn't support AED — the actual charge is the fixed-peg USD
+      // equivalent (see AED_TO_USD_RATE in server.js). Show both so the
+      // amount on PayPal's own approval screen doesn't come as a surprise.
+      const rate = catalog.aedToUsdRate || 3.6725;
+      const totalUsd = totalAed / rate;
+      cartSummaryList.innerHTML = resolved
+        .map(item => `
+          <div class="cart-summary-row">
+            <span>${item.name} × ${item.quantity}</span>
+            <span>${(item.price * item.quantity).toFixed(2)} AED</span>
+          </div>
+        `)
+        .join("") + `
+          <div class="cart-summary-row total">
+            <span>Total</span>
+            <span>${totalAed.toFixed(2)} AED</span>
+          </div>
+          <div class="cart-summary-row usd-note">
+            <span>Charged via PayPal as</span>
+            <span>≈ $${totalUsd.toFixed(2)} USD</span>
+          </div>
+        `;
+
+      manualItemGroup.style.display = "none";
+      cartSummaryGroup.style.display = "flex";
+      amountInput.value = totalAed.toFixed(2);
+      amountInput.disabled = true;
+      container.style.opacity = "1";
+      container.style.pointerEvents = "auto";
+      itemRequiredNotice.style.display = "none";
+      cartModeSdkCurrency = catalog.chargeCurrency || "USD";
+    }
+
+    // Photon (komoot's OSM geocoder) tolerates misspellings/partial words far
+    // better than Nominatim's exact-token search, so "nuyamia" still finds
+    // "Naymiyah". Bias results toward the UAE without hard-filtering them out.
+    const UAE_BIAS = { lat: 24.45, lon: 54.4, zoom: 8 };
+
+    function buildPlaceName(props) {
+      const parts = [props.name, props.street, props.locality, props.district, props.city, props.state, props.country];
+      const seen = new Set();
+      const unique = [];
+      for (const part of parts) {
+        if (part && !seen.has(part)) {
+          seen.add(part);
+          unique.push(part);
+        }
+      }
+      return unique.join(", ");
+    }
+
+    async function geocodeSearch(query) {
+      const params = new URLSearchParams({
+        q: query,
+        limit: "15",
+        lang: "en",
+        lat: String(UAE_BIAS.lat),
+        lon: String(UAE_BIAS.lon),
+        zoom: String(UAE_BIAS.zoom)
+      });
+      const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
+      const data = await response.json();
+      return (data.features || [])
+        .filter(f => f.properties.countrycode === "AE")
+        .map(f => ({
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0],
+          display_name: buildPlaceName(f.properties)
+        }));
+    }
+
+    async function reverseGeocode(lat, lon) {
+      let address = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      try {
+        const response = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&lang=en`);
+        const data = await response.json();
+        const feature = (data.features || [])[0];
+        if (feature) {
+          address = buildPlaceName(feature.properties) || address;
+        }
+      } catch (error) {
+        console.error('Reverse geocode error:', error);
+      }
+      return address;
+    }
+
+    // Tidy the delivery contact number for the order notification. This is our
+    // own field — PayPal never sees it — so only normalise what we're sure of:
+    // a local UAE number (05x…) gets the +971 prefix, anything already carrying
+    // a country code is left exactly as the customer typed it.
+    function formatPhoneNumber(phone) {
+      const trimmed = (phone || "").trim();
+      if (!trimmed) return "";
+
+      const digits = trimmed.replace(/\D/g, "");
+      if (trimmed.startsWith("+")) return `+${digits}`;
+      if (digits.startsWith("971")) return `+${digits}`;
+      if (/^0\d{9}$/.test(digits)) return `+971${digits.slice(1)}`;
+      if (/^\d{9}$/.test(digits)) return `+971${digits}`;
+
+      return trimmed;
+    }
+
+    // Pull coordinates out of a pasted Google Maps link or a plain "lat, lng" string.
+    // Shared "place" links embed the exact pin as "!3d<lat>!4d<lng>", which is more
+    // precise than the "@lat,lng,zoom" segment (that one is just the map's center).
+    function extractLatLng(text) {
+      let m = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+
+      m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+
+      m = text.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+
+      return null;
+    }
+
+    // Picking an item fills in its fixed price and enables the PayPal button.
+    itemSelect.addEventListener('change', () => {
+      const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+      const price = selectedOption.getAttribute('data-price');
+      if (price) {
+        amountInput.value = price;
+        container.style.opacity = "1";
+        container.style.pointerEvents = "auto";
+        itemRequiredNotice.style.display = "none";
+      }
+    });
+
+    selectLocationBtn.addEventListener('click', () => {
+      window.open('https://www.google.com/maps/@25.3949491,55.4336256,15z', '_blank', 'noopener');
+    });
+
+    searchInput.addEventListener('paste', async (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const coords = extractLatLng(text);
+      if (!coords) return; // Not a maps link/coordinate pair — let the normal paste + search happen
+
+      e.preventDefault();
+      searchResults.style.display = 'none';
+      searchInput.value = 'Locating...';
+
+      const address = await reverseGeocode(coords.lat, coords.lng);
+      selectedLocation.lat = coords.lat;
+      selectedLocation.lng = coords.lng;
+      selectedLocation.address = address;
+      searchInput.value = address;
+    });
+
+    // Search for places
+    searchInput.addEventListener('input', async (e) => {
+      const query = e.target.value.trim();
+
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+      }
+
+      try {
+        const results = await geocodeSearch(query);
+
+        searchResults.innerHTML = '';
+        if (results.length > 0) {
+          results.forEach(result => {
+            const div = document.createElement('div');
+            div.className = 'search-result';
+            div.textContent = result.display_name;
+            div.onclick = () => {
+              selectedLocation.lat = result.lat;
+              selectedLocation.lng = result.lon;
+              selectedLocation.address = result.display_name;
+              searchInput.value = result.display_name;
+              searchResults.style.display = 'none';
+            };
+            searchResults.appendChild(div);
+          });
+          searchResults.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+      }
+    });
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+      if (e.target !== searchInput) {
+        searchResults.style.display = 'none';
+      }
+    });
+
+    async function loadConfig() {
+      const response = await fetch("/config");
+      const config = await response.json();
+
+      if (!config.clientId) {
+        container.innerHTML = "<p>PayPal credentials are not configured.</p>";
+        return;
+      }
+
+      const script = document.createElement("script");
+      const sdkCurrency = cartModeSdkCurrency || config.currency || "USD";
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(sdkCurrency)}`;
+      script.async = true;
+      script.onerror = () => {
+        container.innerHTML = "<p>Unable to load the PayPal SDK. Check your network and PayPal client ID.</p>";
+      };
+      script.onload = () => {
+        if (!window.paypal) {
+          container.innerHTML = "<p>PayPal SDK did not initialize correctly.</p>";
+          return;
+        }
+
+        // Note: application_context (shipping_preference, landing_page, …) is
+        // NOT a paypal.Buttons() option — the SDK ignores it here. It only has
+        // an effect where the order is created, in server.js /create-order.
+        const sharedConfig = {
+          createOrder: async function() {
+            // Check the delivery details up front. Doing this in onApprove
+            // instead meant PayPal had already taken the shopper through
+            // approval before we refused to capture, stranding the order.
+            if (!phoneNumberInput.value.trim()) {
+              showCheckoutError("Please enter a phone number before paying.");
+              throw new Error("Missing phone number");
+            }
+            if (!selectedLocation.lat || !selectedLocation.lng) {
+              showCheckoutError("Please pick your delivery location (search for it, or paste a Google Maps link) before paying.");
+              throw new Error("Missing delivery location");
+            }
+            clearCheckoutError();
+
+            const body = cartModeItems
+              ? { items: cartModeItems }
+              : { amount: Number(amountInput.value || config.amount || "10.00").toFixed(2) };
+            const response = await fetch("/create-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+            });
+            const data = await response.json().catch(() => ({}));
+            // A failed /create-order used to return undefined here, which the
+            // SDK turned into a bare onError -> "Payment Failed" page with no
+            // clue why. Show what the server actually said instead.
+            if (!response.ok || !data.id) {
+              const reason = [data.code, data.detail].filter(Boolean).join(" — ") || `HTTP ${response.status}`;
+              showCheckoutError(`We couldn't start the PayPal checkout. Please try again in a moment. (${reason})`);
+              throw new Error(reason);
+            }
+            return data.id;
+          },
+          onApprove: function(data) {
+            // Send the delivery details along with the capture so the server can
+            // record the order and email it the moment the payment goes through.
+            return fetch("/capture-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: data.orderID,
+                item: itemSelect.value,
+                phoneNumber: formatPhoneNumber(phoneNumberInput.value.trim()),
+                deliveryLocation: selectedLocation.address,
+                coordinates: `${selectedLocation.lat}, ${selectedLocation.lng}`
+              })
+            })
+              .then((response) => {
+                // A capture that errored out used to land on /success anyway,
+                // telling the shopper their order went through when it hadn't.
+                window.location.href = response.ok ? "/success" : "/failed";
+              })
+              .catch(() => {
+                window.location.href = "/failed";
+              });
+          },
+          onError: function(error) {
+            console.error("PayPal error:", error);
+            // Only bounce to the failure page for errors we haven't already
+            // explained on this page (a bad amount, missing details, …).
+            if (!checkoutErrorShown) window.location.href = "/failed";
+          }
+        };
+
+        const paypalButtonConfig = {
+          style: {
+            layout: "vertical",
+            color: "gold",
+            shape: "rect",
+            label: "paypal"
+          },
+          ...sharedConfig
+        };
+
+        // Renders both the PayPal button and, automatically beneath it, the
+        // SDK's own "Debit or Credit Card" button (guest checkout, no SMS step).
+        paypal.Buttons(paypalButtonConfig).render("#paypal-account-button-container");
+      };
+      document.head.appendChild(script);
+    }
+
+    initCartMode().then(loadConfig);
+  </script>
+</body>
+</html>
